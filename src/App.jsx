@@ -13,9 +13,9 @@ const SYSTEM_PROMPT = `Tu es un assistant qui analyse les dernières information
   "platform":           { "value": "string", "status": "confirmed|pending|unknown", "note": "string courte" },
   "gameplay":           { "value": "string", "status": "confirmed|pending|unknown", "note": "string courte" },
   "next_direct":        { "value": "string (date prévue ou 'Non planifié')", "status": "confirmed|pending|unknown", "note": "string courte décrivant ce qui est attendu pour Zelda OoT" },
-  "preorder_collector": { "value": "string (date ou 'Non ouvertes')", "status": "confirmed|pending|unknown", "note": "string courte" },
-  "preorder_standard":  { "value": "string", "status": "confirmed|pending|unknown", "note": "string courte" },
-  "preorder_switch2_le":{ "value": "string (date ou 'Non confirmée')", "status": "confirmed|pending|unknown", "note": "string courte sur la Switch 2 édition limitée Zelda leakée par Shpeshal Nick" },
+  "preorder_collector": { "value": "string (date ou 'Non ouvertes')", "status": "confirmed|pending|unknown", "note": "string courte", "url": "string (URL directe vers la page préco, sinon '')" },
+  "preorder_standard":  { "value": "string", "status": "confirmed|pending|unknown", "note": "string courte", "url": "string (URL directe vers la page préco, sinon '')" },
+  "preorder_switch2_le":{ "value": "string (date ou 'Non confirmée')", "status": "confirmed|pending|unknown", "note": "string courte sur la Switch 2 édition limitée Zelda leakée par Shpeshal Nick", "url": "string (URL directe vers la page préco, sinon '')" },
   "news": [
     {
       "date": "string (JJ MMM AAAA)",
@@ -33,6 +33,7 @@ Règles :
 - "unknown" = aucune info disponible
 - Pour next_direct : cherche s'il y a un Nintendo Direct planifié après juin 2026 (septembre ?)
 - Pour preorder_switch2_le : c'est un LEAK (Shpeshal Nick), pas une annonce officielle — statut "pending"
+- Pour les urls de précommande : cherche les liens directs sur Fnac, Amazon.fr, Micromania si disponibles
 - news : 5 à 7 items max, les plus récents d'abord
 - Réponds UNIQUEMENT avec le JSON valide, rien d'autre`;
 
@@ -100,7 +101,7 @@ function Card({ icon, type, title, value, status, note }) {
   );
 }
 
-function PCard({ edition, title, value, status, note }) {
+function PCard({ edition, title, value, status, note, url }) {
   const isC = edition === "collector";
   const isLE = edition === "switch2le";
   const c = SC[status] || SC.unknown;
@@ -114,6 +115,12 @@ function PCard({ edition, title, value, status, note }) {
 
   const label = isLE ? "🎮 Switch 2 Édition Limitée" : isC ? "✦ Édition Collector" : "▸ Édition Standard";
 
+  const shops = [
+    { name: "Fnac", url: "https://www.fnac.com" },
+    { name: "Amazon", url: "https://www.amazon.fr" },
+    { name: "Micromania", url: "https://www.micromania.fr" },
+  ];
+
   return (
     <div style={{ background: isC ? "linear-gradient(135deg,#111422,#161929)" : "#111422", border: `1px solid ${isC ? "rgba(201,168,76,.3)" : isLE ? "rgba(77,107,175,.25)" : "rgba(201,168,76,.18)"}`, borderRadius: 3, padding: "18px 14px", transition: "border-color .2s" }}
       onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,168,76,.45)"}
@@ -124,7 +131,28 @@ function PCard({ edition, title, value, status, note }) {
       <div style={{ fontFamily: "'VT323',monospace", fontSize: 22, color: c, marginBottom: 5 }}>
         {value || "—"}{blink && <span style={{ animation: "blink 1.2s step-end infinite" }}>_</span>}
       </div>
-      <div style={{ fontSize: 12.5, color: "#7A6E55", lineHeight: 1.4 }}>{note}</div>
+      <div style={{ fontSize: 12.5, color: "#7A6E55", lineHeight: 1.4, marginBottom: 10 }}>{note}</div>
+
+      {/* Liens boutiques */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {url ? (
+          <a href={url} target="_blank" rel="noopener noreferrer"
+            style={{ fontFamily: "'Press Start 2P',monospace", fontSize: 5.5, letterSpacing: 1, padding: "4px 8px", background: "rgba(201,168,76,.08)", color: "#C9A84C", border: "1px solid rgba(201,168,76,.3)", borderRadius: 2, textDecoration: "none", transition: "all .2s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(201,168,76,.18)"; e.currentTarget.style.borderColor = "#C9A84C"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(201,168,76,.08)"; e.currentTarget.style.borderColor = "rgba(201,168,76,.3)"; }}>
+            ↗ Précommander
+          </a>
+        ) : (
+          shops.map(s => (
+            <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
+              style={{ fontFamily: "'Press Start 2P',monospace", fontSize: 5.5, letterSpacing: 1, padding: "4px 8px", background: "rgba(201,168,76,.04)", color: "#7A6E55", border: "1px solid rgba(201,168,76,.15)", borderRadius: 2, textDecoration: "none", transition: "all .2s" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(201,168,76,.1)"; e.currentTarget.style.color = "#C9A84C"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(201,168,76,.04)"; e.currentTarget.style.color = "#7A6E55"; }}>
+              {s.name} ↗
+            </a>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -172,7 +200,6 @@ function TrailerBlock() {
       <SLabel>◈ Trailer officiel</SLabel>
       <div style={{ background: "#0C0E1A", border: "1px solid rgba(201,168,76,.28)", borderRadius: 4, overflow: "hidden", position: "relative" }}>
         {!playing ? (
-          // Thumbnail clickable
           <div onClick={() => setPlaying(true)} style={{ position: "relative", cursor: "pointer", aspectRatio: "16/9", background: "#0A0B14", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
             <img
               src={`https://img.youtube.com/vi/${TRAILER_YT_ID}/maxresdefault.jpg`}
@@ -181,13 +208,11 @@ function TrailerBlock() {
               onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
               onMouseLeave={e => e.currentTarget.style.opacity = "0.75"}
             />
-            {/* Play button */}
             <div style={{ position: "absolute", width: 68, height: 68, borderRadius: "50%", background: "rgba(0,0,0,.7)", border: "2px solid rgba(201,168,76,.6)", display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color .2s, transform .2s" }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#C9A84C"; e.currentTarget.style.transform = "scale(1.08)"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(201,168,76,.6)"; e.currentTarget.style.transform = "scale(1)"; }}>
               <div style={{ width: 0, height: 0, borderTop: "14px solid transparent", borderBottom: "14px solid transparent", borderLeft: "24px solid #C9A84C", marginLeft: 5 }} />
             </div>
-            {/* Label */}
             <div style={{ position: "absolute", bottom: 14, left: 16, fontFamily: "'Press Start 2P',monospace", fontSize: 7, color: "rgba(201,168,76,.8)", letterSpacing: 2 }}>
               NINTENDO DIRECT · 9.6.2026
             </div>
@@ -203,7 +228,6 @@ function TrailerBlock() {
             />
           </div>
         )}
-        {/* Bottom bar */}
         <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontFamily: "'Cinzel',serif", fontSize: 13, color: "#C9A84C" }}>The Legend of Zelda: Ocarina of Time — Trailer</div>
           <a href={`https://www.youtube.com/watch?v=${TRAILER_YT_ID}`} target="_blank" rel="noopener noreferrer"
@@ -238,7 +262,7 @@ export default function App() {
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{
             role: "user",
-            content: "Recherche les dernières infos sur 'Zelda Ocarina of Time Remake Nintendo Switch 2 2026' : date sortie, prochain Nintendo Direct planifié, précommandes collector et standard, Switch 2 édition limitée Zelda (leak Shpeshal Nick), actualités récentes. Cherche en français et en anglais."
+            content: "Recherche les dernières infos sur 'Zelda Ocarina of Time Remake Nintendo Switch 2 2026' : date sortie, prochain Nintendo Direct planifié, précommandes collector et standard avec liens directs Fnac/Amazon/Micromania si disponibles, Switch 2 édition limitée Zelda (leak Shpeshal Nick), actualités récentes. Cherche en français et en anglais."
           }]
         })
       });
@@ -257,11 +281,11 @@ export default function App() {
   useEffect(() => { fetchData(); }, []);
 
   const statusCards = [
-    { icon: "📣", type: "Annonce",     title: "Date d'annonce officielle",      key: "announcement_date" },
-    { icon: "🗓️", type: "Sortie",      title: "Date de sortie",                 key: "release_date" },
-    { icon: "🎮", type: "Plateforme",  title: "Support confirmé",               key: "platform" },
-    { icon: "⚔️", type: "Gameplay",   title: "Infos de jeu",                   key: "gameplay" },
-    { icon: "📡", type: "Prochain Direct", title: "Prochaine com Nintendo",     key: "next_direct" },
+    { icon: "📣", type: "Annonce",        title: "Date d'annonce officielle",  key: "announcement_date" },
+    { icon: "🗓️", type: "Sortie",         title: "Date de sortie",             key: "release_date" },
+    { icon: "🎮", type: "Plateforme",     title: "Support confirmé",           key: "platform" },
+    { icon: "⚔️", type: "Gameplay",      title: "Infos de jeu",               key: "gameplay" },
+    { icon: "📡", type: "Prochain Direct", title: "Prochaine com Nintendo",    key: "next_direct" },
   ];
 
   return (
@@ -317,9 +341,9 @@ export default function App() {
         {/* PREORDERS */}
         <SLabel>◈ Précommandes</SLabel>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 13, marginBottom: 40 }}>
-          <PCard edition="collector"  title="Jeu — Édition Collector"     value={data?.preorder_collector?.value}   status={data?.preorder_collector?.status  || "loading"} note={data?.preorder_collector?.note  || "Recherche en cours…"} />
-          <PCard edition="standard"   title="Jeu — Édition Standard"      value={data?.preorder_standard?.value}    status={data?.preorder_standard?.status   || "loading"} note={data?.preorder_standard?.note   || "Recherche en cours…"} />
-          <PCard edition="switch2le"  title="Console Switch 2 édition Zelda" value={data?.preorder_switch2_le?.value} status={data?.preorder_switch2_le?.status || "loading"} note={data?.preorder_switch2_le?.note || "Recherche en cours…"} />
+          <PCard edition="collector"  title="Jeu — Édition Collector"        value={data?.preorder_collector?.value}    status={data?.preorder_collector?.status  || "loading"} note={data?.preorder_collector?.note  || "Recherche en cours…"} url={data?.preorder_collector?.url  || ""} />
+          <PCard edition="standard"   title="Jeu — Édition Standard"         value={data?.preorder_standard?.value}     status={data?.preorder_standard?.status   || "loading"} note={data?.preorder_standard?.note   || "Recherche en cours…"} url={data?.preorder_standard?.url   || ""} />
+          <PCard edition="switch2le"  title="Console Switch 2 édition Zelda" value={data?.preorder_switch2_le?.value}   status={data?.preorder_switch2_le?.status || "loading"} note={data?.preorder_switch2_le?.note || "Recherche en cours…"} url={data?.preorder_switch2_le?.url || ""} />
         </div>
 
         {/* DIVIDER */}
